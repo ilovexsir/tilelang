@@ -17,7 +17,13 @@ def _target_ffi_api():
 
 
 def _make_ascend_target(target_dict: dict | None = None) -> Target:
-    target_dict = dict(target_dict or {})
+    if target_dict is None:
+        target_dict = {}
+    else:
+        try:
+            target_dict = dict(target_dict)
+        except (TypeError, ValueError) as error:
+            raise TypeError(f"_make_ascend_target: target_dict must be a mapping or None, got {type(target_dict).__name__}") from error
     target_dict["kind"] = "ascend"
     return Target(target_dict)
 
@@ -26,7 +32,19 @@ def _with_pto_key(target: Target) -> Target:
     target_dict = dict(target.export())
     # The native kind supplies Ascend semantics; "pto" selects PTO codegen,
     # while "ascend" preserves the target kind's default feature key.
-    target_dict["keys"] = list(dict.fromkeys(["pto", *target_dict.get("keys", ()), "ascend"]))
+    keys = target_dict.get("keys", ())
+    if keys is None:
+        raise TypeError("_with_pto_key: target 'keys' must not be None")
+    if isinstance(keys, str):
+        keys = [keys]
+    else:
+        try:
+            keys = list(keys)
+        except TypeError as error:
+            raise TypeError(f"_with_pto_key: target 'keys' must be a sequence of strings, got {type(keys).__name__}") from error
+    if not all(isinstance(k, str) for k in keys):
+        raise TypeError("_with_pto_key: target 'keys' must contain only strings")
+    target_dict["keys"] = list(dict.fromkeys(["pto", *keys, "ascend"]))
     return Target(target_dict)
 
 
